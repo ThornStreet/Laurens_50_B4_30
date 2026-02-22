@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { updateVisited, updateDateVisited, updateNotes } from "@/lib/actions";
 import type { StateRecord } from "@/lib/types";
 
@@ -16,19 +16,6 @@ export default function StatePanel({ state, onUpdate, onClose }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
 
-  // Close on click outside
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (
-        backdropRef.current &&
-        e.target === backdropRef.current
-      ) {
-        onClose();
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [onClose]);
 
   async function toggleVisited() {
     const updated = { ...state, visited: !state.visited };
@@ -46,6 +33,9 @@ export default function StatePanel({ state, onUpdate, onClose }: Props) {
   return (
     <div
       ref={backdropRef}
+      onMouseDown={(e) => {
+        if (e.target === backdropRef.current) onClose();
+      }}
       style={{
         position: "fixed",
         inset: 0,
@@ -53,6 +43,7 @@ export default function StatePanel({ state, onUpdate, onClose }: Props) {
         display: "flex",
         alignItems: "flex-end",
         justifyContent: "center",
+        background: "rgba(0,0,0,0.4)",
       }}
     >
       <div
@@ -65,6 +56,7 @@ export default function StatePanel({ state, onUpdate, onClose }: Props) {
           padding: "20px 24px 32px",
           color: "#fff",
           animation: "slideUp 0.25s ease-out",
+          overflow: "hidden",
         }}
       >
         {/* Drag handle */}
@@ -154,16 +146,20 @@ export default function StatePanel({ state, onUpdate, onClose }: Props) {
               }}
               style={{
                 width: "100%",
+                maxWidth: "100%",
+                boxSizing: "border-box",
                 padding: "10px 14px",
                 borderRadius: 10,
                 border: "1px solid rgba(255,255,255,0.1)",
                 background: "rgba(255,255,255,0.05)",
                 color: "#fff",
-                fontSize: 15,
+                fontSize: 14,
                 outline: "none",
                 fontFamily: "inherit",
                 marginBottom: 16,
                 colorScheme: "dark",
+                WebkitAppearance: "none",
+                appearance: "none",
               }}
             />
           </>
