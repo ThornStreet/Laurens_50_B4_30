@@ -5,6 +5,8 @@ import { fetchStates } from "@/lib/actions";
 import type { StateRecord } from "@/lib/types";
 import Map from "@/components/Map";
 import StatePanel from "@/components/StatePanel";
+import ProgressBadge from "@/components/ProgressBadge";
+import CountdownBadge from "@/components/CountdownBadge";
 
 export default function Home() {
   const [states, setStates] = useState<StateRecord[]>([]);
@@ -33,6 +35,8 @@ export default function Home() {
   return (
     <>
       <Map states={states} onStateClick={handleStateClick} />
+      <ProgressBadge states={states} />
+      <CountdownBadge />
       {selected && (
         <StatePanel
           key={selected.name}

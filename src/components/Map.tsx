@@ -121,6 +121,7 @@ export default function Map({ states, onStateClick }: Props) {
         map.current!.addSource("states", {
           type: "geojson",
           data: "/states.geojson",
+          generateId: true,
         });
 
         const unvisitedList = statesRef.current
@@ -155,6 +156,22 @@ export default function Map({ states, onStateClick }: Props) {
             "line-color": "#ffffff",
             "line-opacity": 0.2,
             "line-width": 1,
+          },
+        });
+
+        // Hover highlight layer
+        map.current!.addLayer({
+          id: "state-hover",
+          type: "fill",
+          source: "states",
+          paint: {
+            "fill-color": "#ffffff",
+            "fill-opacity": [
+              "case",
+              ["boolean", ["feature-state", "hover"], false],
+              0.15,
+              0,
+            ] as unknown as number,
           },
         });
 
@@ -193,20 +210,78 @@ export default function Map({ states, onStateClick }: Props) {
           },
         });
 
-        // Click handler for states
+        // Click handler — fly to state, then open panel
         map.current!.on("click", "state-fills", (e) => {
-          if (e.features && e.features.length > 0) {
-            const name = e.features[0].properties?.NAME;
-            if (name) onStateClick(name);
+          if (!e.features || e.features.length === 0) return;
+          const feature = e.features[0];
+          const name = feature.properties?.NAME;
+          if (!name) return;
+
+          // Compute centroid from geometry coordinates
+          const geom = feature.geometry as GeoJSON.Geometry;
+          let coords: number[][] = [];
+          if (geom.type === "Polygon") {
+            coords = (geom as GeoJSON.Polygon).coordinates.flat();
+          } else if (geom.type === "MultiPolygon") {
+            coords = (geom as GeoJSON.MultiPolygon).coordinates.flat(2);
+          }
+
+          if (coords.length > 0) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (const c of coords) {
+              if (c[0] < minX) minX = c[0];
+              if (c[1] < minY) minY = c[1];
+              if (c[0] > maxX) maxX = c[0];
+              if (c[1] > maxY) maxY = c[1];
+            }
+            const center: [number, number] = [(minX + maxX) / 2, (minY + maxY) / 2];
+            const currentZoom = map.current!.getZoom();
+
+            map.current!.flyTo({
+              center,
+              zoom: Math.max(currentZoom, 4.5),
+              duration: 800,
+            });
+          }
+
+          setTimeout(() => onStateClick(name), 500);
+        });
+
+        // Hover highlight via feature state
+        let hoveredId: string | number | null = null;
+
+        map.current!.on("mousemove", "state-fills", (e) => {
+          map.current!.getCanvas().style.cursor = "pointer";
+          if (!e.features || e.features.length === 0) return;
+          const id = e.features[0].id;
+          if (id === hoveredId) return;
+
+          // Clear previous
+          if (hoveredId !== null && hoveredId !== undefined) {
+            map.current!.setFeatureState(
+              { source: "states", id: hoveredId },
+              { hover: false }
+            );
+          }
+
+          hoveredId = id ?? null;
+          if (hoveredId !== null && hoveredId !== undefined) {
+            map.current!.setFeatureState(
+              { source: "states", id: hoveredId },
+              { hover: true }
+            );
           }
         });
 
-        // Change cursor on hover
-        map.current!.on("mouseenter", "state-fills", () => {
-          map.current!.getCanvas().style.cursor = "pointer";
-        });
         map.current!.on("mouseleave", "state-fills", () => {
           map.current!.getCanvas().style.cursor = "";
+          if (hoveredId !== null && hoveredId !== undefined) {
+            map.current!.setFeatureState(
+              { source: "states", id: hoveredId },
+              { hover: false }
+            );
+          }
+          hoveredId = null;
         });
       });
     }
