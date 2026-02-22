@@ -1,0 +1,66 @@
+-- Create the states table
+CREATE TABLE states (
+  name TEXT PRIMARY KEY,
+  abbr TEXT NOT NULL,
+  visited BOOLEAN NOT NULL DEFAULT false,
+  date_visited DATE,
+  notes TEXT
+);
+
+-- Enable public read/write (no auth required)
+ALTER TABLE states ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public access" ON states FOR ALL USING (true) WITH CHECK (true);
+
+-- Seed all 50 states + DC
+INSERT INTO states (name, abbr, visited) VALUES
+  ('Alabama', 'AL', true),
+  ('Alaska', 'AK', true),
+  ('Arizona', 'AZ', true),
+  ('Arkansas', 'AR', true),
+  ('California', 'CA', true),
+  ('Colorado', 'CO', true),
+  ('Connecticut', 'CT', true),
+  ('Delaware', 'DE', true),
+  ('District of Columbia', 'DC', true),
+  ('Florida', 'FL', true),
+  ('Georgia', 'GA', true),
+  ('Hawaii', 'HI', true),
+  ('Idaho', 'ID', false),
+  ('Illinois', 'IL', true),
+  ('Indiana', 'IN', true),
+  ('Iowa', 'IA', true),
+  ('Kansas', 'KS', true),
+  ('Kentucky', 'KY', false),
+  ('Louisiana', 'LA', false),
+  ('Maine', 'ME', false),
+  ('Maryland', 'MD', true),
+  ('Massachusetts', 'MA', true),
+  ('Michigan', 'MI', true),
+  ('Minnesota', 'MN', false),
+  ('Mississippi', 'MS', false),
+  ('Missouri', 'MO', true),
+  ('Montana', 'MT', false),
+  ('Nebraska', 'NE', true),
+  ('Nevada', 'NV', true),
+  ('New Hampshire', 'NH', false),
+  ('New Jersey', 'NJ', true),
+  ('New Mexico', 'NM', false),
+  ('New York', 'NY', true),
+  ('North Carolina', 'NC', false),
+  ('North Dakota', 'ND', false),
+  ('Ohio', 'OH', true),
+  ('Oklahoma', 'OK', false),
+  ('Oregon', 'OR', true),
+  ('Pennsylvania', 'PA', true),
+  ('Rhode Island', 'RI', true),
+  ('South Carolina', 'SC', false),
+  ('South Dakota', 'SD', false),
+  ('Tennessee', 'TN', true),
+  ('Texas', 'TX', true),
+  ('Utah', 'UT', true),
+  ('Vermont', 'VT', false),
+  ('Virginia', 'VA', true),
+  ('Washington', 'WA', true),
+  ('West Virginia', 'WV', true),
+  ('Wisconsin', 'WI', false),
+  ('Wyoming', 'WY', true);

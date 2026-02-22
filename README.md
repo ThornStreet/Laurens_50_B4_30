@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lauren's 50 Before 30
 
-## Getting Started
+A mobile-first interactive map tracking Lauren's quest to visit all 50 US states before she turns 30.
 
-First, run the development server:
+## Tech Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Next.js** (App Router)
+- **MapLibre GL JS** for map rendering
+- **Mapbox Dark** tile style
+- **Supabase** for state tracking (visited/notes)
+- **Tailwind CSS**
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Install dependencies:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   npm install
+   ```
 
-## Learn More
+2. Create a `.env.local` file (see `.env.local.example`) with:
 
-To learn more about Next.js, take a look at the following resources:
+   ```
+   NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_access_token_here
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   - Get a Mapbox token at [mapbox.com](https://account.mapbox.com/access-tokens/)
+   - Get Supabase credentials by creating a project at [supabase.com](https://supabase.com)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. Set up the Supabase database:
 
-## Deploy on Vercel
+   - Go to the **SQL Editor** in your Supabase dashboard
+   - Paste and run the contents of `supabase/migration.sql`
+   - This creates the `states` table and seeds all 50 states + DC
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+4. Start the dev server:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   ```bash
+   npm run dev
+   ```
+
+5. Open [http://localhost:3000](http://localhost:3000) on your phone or browser.
+
+## Usage
+
+- Tap any state on the map to open its detail panel
+- Toggle the visited status — the map updates immediately
+- Add notes about your visit — saved automatically when you tap away
