@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabase } from "@/lib/supabase";
+import { fetchStates } from "@/lib/actions";
 import type { StateRecord } from "@/lib/types";
 import Map from "@/components/Map";
 import StatePanel from "@/components/StatePanel";
@@ -11,13 +11,7 @@ export default function Home() {
   const [selectedState, setSelectedState] = useState<string | null>(null);
 
   useEffect(() => {
-    getSupabase()
-      .from("states")
-      .select("*")
-      .order("name")
-      .then(({ data }) => {
-        if (data) setStates(data as StateRecord[]);
-      });
+    fetchStates().then(setStates);
   }, []);
 
   function handleStateClick(name: string) {
@@ -37,6 +31,7 @@ export default function Home() {
       <Map states={states} onStateClick={handleStateClick} />
       {selected && (
         <StatePanel
+          key={selected.name}
           state={selected}
           onUpdate={handleUpdate}
           onClose={() => setSelectedState(null)}

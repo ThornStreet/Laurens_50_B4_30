@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getSupabase } from "@/lib/supabase";
+import { updateVisited, updateDateVisited, updateNotes } from "@/lib/actions";
 import type { StateRecord } from "@/lib/types";
 
 type Props = {
@@ -15,12 +15,6 @@ export default function StatePanel({ state, onUpdate, onClose }: Props) {
   const [dateVisited, setDateVisited] = useState(state.date_visited ?? "");
   const panelRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
-
-  // Reset fields when state changes
-  useEffect(() => {
-    setNotes(state.notes ?? "");
-    setDateVisited(state.date_visited ?? "");
-  }, [state.name, state.notes, state.date_visited]);
 
   // Close on click outside
   useEffect(() => {
@@ -39,20 +33,14 @@ export default function StatePanel({ state, onUpdate, onClose }: Props) {
   async function toggleVisited() {
     const updated = { ...state, visited: !state.visited };
     onUpdate(updated);
-    await getSupabase()
-      .from("states")
-      .update({ visited: updated.visited })
-      .eq("name", state.name);
+    await updateVisited(state.name, updated.visited);
   }
 
   async function saveNotes() {
     if (notes === (state.notes ?? "")) return;
     const updatedNotes = notes || null;
     onUpdate({ ...state, notes: updatedNotes });
-    await getSupabase()
-      .from("states")
-      .update({ notes: updatedNotes })
-      .eq("name", state.name);
+    await updateNotes(state.name, updatedNotes);
   }
 
   return (
@@ -162,10 +150,7 @@ export default function StatePanel({ state, onUpdate, onClose }: Props) {
                 const val = e.target.value || null;
                 setDateVisited(val ?? "");
                 onUpdate({ ...state, date_visited: val });
-                getSupabase()
-                  .from("states")
-                  .update({ date_visited: val })
-                  .eq("name", state.name);
+                updateDateVisited(state.name, val);
               }}
               style={{
                 width: "100%",

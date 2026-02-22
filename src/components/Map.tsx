@@ -58,10 +58,11 @@ export default function Map({ states, onStateClick }: Props) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const statesRef = useRef(states);
-  statesRef.current = states;
 
   // Update map fill colors when states change
   useEffect(() => {
+    statesRef.current = states;
+
     if (!map.current || !map.current.isStyleLoaded()) return;
 
     const unvisitedList = states
