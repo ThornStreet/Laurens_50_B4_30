@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { updateVisited, updateDateVisited, updateNotes } from "@/lib/actions";
 import type { StateRecord } from "@/lib/types";
 
@@ -23,17 +23,24 @@ export default function StatePanel({ state, onUpdate, onClose }: Props) {
     await updateVisited(state.name, updated.visited);
   }
 
-  async function saveNotes() {
-    if (notes === (state.notes ?? "")) return;
-    const updatedNotes = notes || null;
-    onUpdate({ ...state, notes: updatedNotes });
-    await updateNotes(state.name, updatedNotes);
-  }
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const debouncedSaveNotes = useCallback(
+    (value: string) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        const updatedNotes = value || null;
+        onUpdate({ ...state, notes: updatedNotes });
+        updateNotes(state.name, updatedNotes);
+      }, 300);
+    },
+    [state, onUpdate]
+  );
 
   return (
     <div
       ref={backdropRef}
-      onMouseDown={(e) => {
+      onClick={(e) => {
         if (e.target === backdropRef.current) onClose();
       }}
       style={{
@@ -170,8 +177,10 @@ export default function StatePanel({ state, onUpdate, onClose }: Props) {
         </label>
         <textarea
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          onBlur={saveNotes}
+          onChange={(e) => {
+            setNotes(e.target.value);
+            debouncedSaveNotes(e.target.value);
+          }}
           placeholder="Add notes about this state..."
           rows={3}
           style={{
