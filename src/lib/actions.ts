@@ -19,10 +19,11 @@ export async function updateVisited(name: string, visited: boolean) {
 }
 
 export async function updateDateVisited(name: string, date_visited: string | null) {
-  await getSupabase()
+  const { error } = await getSupabase()
     .from("states")
-    .update({ date_visited })
+    .update({ date_visited: date_visited || null })
     .eq("name", name);
+  if (error) console.error("updateDateVisited error:", error);
 }
 
 export async function updateNotes(name: string, notes: string | null) {
