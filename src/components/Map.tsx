@@ -158,6 +158,41 @@ export default function Map({ states, onStateClick }: Props) {
           },
         });
 
+        // Title label over Canada
+        map.current!.addSource("title-label", {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [-96, 56] },
+            properties: {},
+          },
+        });
+
+        map.current!.addLayer({
+          id: "title-label",
+          type: "symbol",
+          source: "title-label",
+          layout: {
+            "text-field": "Lauren's 50 B4 30",
+            "text-size": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              2, 24,
+              3.5, 42,
+              6, 80,
+            ],
+            "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"],
+            "text-letter-spacing": 0.3,
+            "symbol-placement": "point",
+            "text-allow-overlap": true,
+          },
+          paint: {
+            "text-color": "#ffffff",
+            "text-opacity": 0.7,
+          },
+        });
+
         // Click handler for states
         map.current!.on("click", "state-fills", (e) => {
           if (e.features && e.features.length > 0) {
