@@ -26,6 +26,10 @@ export default function Home() {
 
   const selected = states.find((s) => s.name === selectedState) ?? null;
 
+  if (states.length === 0) {
+    return null;
+  }
+
   return (
     <>
       <Map states={states} onStateClick={handleStateClick} />
