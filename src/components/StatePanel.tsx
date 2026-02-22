@@ -59,17 +59,6 @@ export default function StatePanel({ state, onUpdate, onClose }: Props) {
           overflow: "hidden",
         }}
       >
-        {/* Drag handle */}
-        <div
-          style={{
-            width: 40,
-            height: 4,
-            borderRadius: 2,
-            background: "rgba(255,255,255,0.3)",
-            margin: "0 auto 16px",
-          }}
-        />
-
         {/* Header */}
         <div
           style={{
