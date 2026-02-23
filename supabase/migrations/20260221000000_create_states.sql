@@ -11,7 +11,7 @@ CREATE TABLE states (
 ALTER TABLE states ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow public access" ON states FOR ALL USING (true) WITH CHECK (true);
 
--- Seed all 50 states + DC
+-- Seed all 50 states + DC + Puerto Rico
 INSERT INTO states (name, abbr, visited) VALUES
   ('Alabama', 'AL', true),
   ('Alaska', 'AK', true),
@@ -63,4 +63,6 @@ INSERT INTO states (name, abbr, visited) VALUES
   ('Washington', 'WA', true),
   ('West Virginia', 'WV', true),
   ('Wisconsin', 'WI', false),
-  ('Wyoming', 'WY', true);
+  ('Wyoming', 'WY', true),
+  ('Puerto Rico', 'PR', false),
+  ('U.S. Virgin Islands', 'VI', false);

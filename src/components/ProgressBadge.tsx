@@ -7,7 +7,8 @@ type Props = {
 };
 
 export default function ProgressBadge({ states }: Props) {
-  const visited = states.filter((s) => s.visited && s.name !== "District of Columbia").length;
+  const excluded = ["District of Columbia", "Puerto Rico", "U.S. Virgin Islands"];
+  const visited = states.filter((s) => s.visited && !excluded.includes(s.name)).length;
   const total = 50;
   const pct = visited / total;
 
