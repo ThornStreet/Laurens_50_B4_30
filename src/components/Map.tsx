@@ -2,14 +2,21 @@
 
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
-import type { StateRecord } from "@/lib/types";
+import type { StateRecord, Celebration, Anchor } from "@/lib/types";
+import { COLORS, prefersReducedMotion } from "@/lib/constants";
 
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 const STYLE_URL = `https://api.mapbox.com/styles/v1/mapbox/dark-v11?access_token=${TOKEN}`;
 
+// Lift the focused state above the bottom sheet so the celebration rings
+// (and the state itself, while editing) aren't hidden behind it.
+const FOCUS_OFFSET: [number, number] = [0, -150];
+
 type Props = {
   states: StateRecord[];
   onStateClick: (stateName: string) => void;
+  celebration: Celebration | null;
+  onAnchor: (anchor: Anchor) => void;
 };
 
 /**
@@ -54,36 +61,69 @@ function resolveStyle(raw: Record<string, unknown>): maplibregl.StyleSpecificati
   } as maplibregl.StyleSpecification;
 }
 
-export default function Map({ states, onStateClick }: Props) {
+/** Flatten polygon/multipolygon rings to a flat list of [lng,lat] coords. */
+function geometryCoords(geom: GeoJSON.Geometry): number[][] {
+  if (geom.type === "Polygon") return (geom as GeoJSON.Polygon).coordinates.flat();
+  if (geom.type === "MultiPolygon")
+    return (geom as GeoJSON.MultiPolygon).coordinates.flat(2);
+  return [];
+}
+
+/** Center of a coordinate set's bounding box (cheap, good enough for anchoring). */
+function bboxCenter(coords: number[][]): [number, number] | null {
+  if (coords.length === 0) return null;
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  for (const c of coords) {
+    if (c[0] < minX) minX = c[0];
+    if (c[1] < minY) minY = c[1];
+    if (c[0] > maxX) maxX = c[0];
+    if (c[1] > maxY) maxY = c[1];
+  }
+  return [(minX + maxX) / 2, (minY + maxY) / 2];
+}
+
+export default function Map({ states, onStateClick, celebration, onAnchor }: Props) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const statesRef = useRef(states);
+  const celebrateRaf = useRef<number | null>(null);
+  const restingZoomRef = useRef<number | null>(null);
 
-  // Update map fill colors when states change
+  // Recolor state fills + visited borders whenever the data changes.
   useEffect(() => {
     statesRef.current = states;
 
-    if (!map.current || !map.current.isStyleLoaded()) return;
+    const m = map.current;
+    if (!m || !m.isStyleLoaded()) return;
 
-    const unvisitedList = states
-      .filter((s) => !s.visited)
-      .map((s) => s.name);
+    const unvisitedList = states.filter((s) => !s.visited).map((s) => s.name);
 
-    map.current.setPaintProperty("state-fills", "fill-color", [
+    m.setPaintProperty("state-fills", "fill-color", [
       "case",
       ["in", ["get", "NAME"], ["literal", unvisitedList]],
       "transparent",
-      "#22c55e",
+      COLORS.mint500,
     ]);
 
-    map.current.setPaintProperty("state-fills", "fill-opacity", [
+    m.setPaintProperty("state-fills", "fill-opacity", [
       "case",
       ["in", ["get", "NAME"], ["literal", unvisitedList]],
       0,
-      0.35,
+      0.4,
+    ]);
+
+    m.setPaintProperty("state-visited-border", "line-opacity", [
+      "case",
+      ["in", ["get", "NAME"], ["literal", unvisitedList]],
+      0,
+      0.5,
     ]);
   }, [states]);
 
+  // One-time map init.
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
 
@@ -137,13 +177,13 @@ export default function Map({ states, onStateClick }: Props) {
               "case",
               ["in", ["get", "NAME"], ["literal", unvisitedList]],
               "transparent",
-              "#22c55e",
+              COLORS.mint500,
             ] as unknown as string,
             "fill-opacity": [
               "case",
               ["in", ["get", "NAME"], ["literal", unvisitedList]],
               0,
-              0.35,
+              0.4,
             ] as unknown as number,
           },
         });
@@ -154,8 +194,25 @@ export default function Map({ states, onStateClick }: Props) {
           source: "states",
           paint: {
             "line-color": "#ffffff",
-            "line-opacity": 0.2,
+            "line-opacity": 0.15,
             "line-width": 1,
+          },
+        });
+
+        // Mint outline that only shows on visited states.
+        map.current!.addLayer({
+          id: "state-visited-border",
+          type: "line",
+          source: "states",
+          paint: {
+            "line-color": COLORS.mint400,
+            "line-width": 1.2,
+            "line-opacity": [
+              "case",
+              ["in", ["get", "NAME"], ["literal", unvisitedList]],
+              0,
+              0.5,
+            ] as unknown as number,
           },
         });
 
@@ -169,7 +226,7 @@ export default function Map({ states, onStateClick }: Props) {
             "fill-opacity": [
               "case",
               ["boolean", ["feature-state", "hover"], false],
-              0.15,
+              0.12,
               0,
             ] as unknown as number,
           },
@@ -205,8 +262,11 @@ export default function Map({ states, onStateClick }: Props) {
             "text-allow-overlap": true,
           },
           paint: {
-            "text-color": "#ffffff",
-            "text-opacity": 0.7,
+            "text-color": COLORS.mint300,
+            "text-opacity": 0.55,
+            "text-halo-color": "#0a0a0a",
+            "text-halo-width": 1.4,
+            "text-halo-blur": 1,
           },
         });
 
@@ -217,29 +277,16 @@ export default function Map({ states, onStateClick }: Props) {
           const name = feature.properties?.NAME;
           if (!name) return;
 
-          // Compute centroid from geometry coordinates
-          const geom = feature.geometry as GeoJSON.Geometry;
-          let coords: number[][] = [];
-          if (geom.type === "Polygon") {
-            coords = (geom as GeoJSON.Polygon).coordinates.flat();
-          } else if (geom.type === "MultiPolygon") {
-            coords = (geom as GeoJSON.MultiPolygon).coordinates.flat(2);
-          }
+          const center = bboxCenter(
+            geometryCoords(feature.geometry as GeoJSON.Geometry)
+          );
 
-          if (coords.length > 0) {
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            for (const c of coords) {
-              if (c[0] < minX) minX = c[0];
-              if (c[1] < minY) minY = c[1];
-              if (c[0] > maxX) maxX = c[0];
-              if (c[1] > maxY) maxY = c[1];
-            }
-            const center: [number, number] = [(minX + maxX) / 2, (minY + maxY) / 2];
+          if (center) {
             const currentZoom = map.current!.getZoom();
-
             map.current!.flyTo({
               center,
               zoom: Math.max(currentZoom, 4.5),
+              offset: FOCUS_OFFSET,
               duration: 800,
             });
           }
@@ -290,10 +337,100 @@ export default function Map({ states, onStateClick }: Props) {
 
     return () => {
       cancelled = true;
+      if (celebrateRaf.current) cancelAnimationFrame(celebrateRaf.current);
       map.current?.remove();
       map.current = null;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Celebration: anchor the overlay to the state, bloom a glow line, breathe the camera.
+  useEffect(() => {
+    const m = map.current;
+    if (!celebration || !m) return;
+
+    // Resolve the celebrated state's center. querySourceFeatures only works once
+    // the style is up; otherwise fall back to the map center so the anchor (and
+    // therefore the toast/rings) is always emitted and never silently dropped.
+    const styleReady = m.isStyleLoaded();
+    let center: [number, number] | null = null;
+    if (styleReady) {
+      const feats = m.querySourceFeatures("states", {
+        filter: ["==", ["get", "NAME"], celebration.name],
+      });
+      let coords: number[][] = [];
+      for (const f of feats) {
+        coords = coords.concat(geometryCoords(f.geometry as GeoJSON.Geometry));
+      }
+      center = bboxCenter(coords);
+    }
+    if (!center) {
+      const c = m.getCenter();
+      center = [c.lng, c.lat];
+    }
+    const px = m.project(center);
+    onAnchor({ x: px.x, y: px.y, seq: celebration.seq });
+
+    // Map-side motion only when the style is ready and motion is allowed.
+    if (!styleReady || prefersReducedMotion()) return;
+
+    // Expanding glow line traced on the state's border.
+    if (m.getLayer("state-celebrate")) m.removeLayer("state-celebrate");
+    m.addLayer({
+      id: "state-celebrate",
+      type: "line",
+      source: "states",
+      filter: ["==", ["get", "NAME"], celebration.name],
+      paint: {
+        "line-color": COLORS.mint300,
+        "line-blur": 3,
+        "line-width": 1,
+        "line-opacity": 0.9,
+      },
+    });
+
+    const start = performance.now();
+    const DURATION = 800;
+    const step = (now: number) => {
+      const mc = map.current;
+      if (!mc || !mc.getLayer("state-celebrate")) return;
+      const t = Math.min(1, (now - start) / DURATION);
+      mc.setPaintProperty("state-celebrate", "line-width", 1 + 4 * Math.sin(t * Math.PI));
+      mc.setPaintProperty("state-celebrate", "line-opacity", 0.9 * (1 - t));
+      if (t < 1) {
+        celebrateRaf.current = requestAnimationFrame(step);
+      } else {
+        mc.removeLayer("state-celebrate");
+        celebrateRaf.current = null;
+      }
+    };
+    celebrateRaf.current = requestAnimationFrame(step);
+
+    // Subtle camera "breath" in and back. Ease back to a persisted resting zoom
+    // (not the live zoom) so rapid celebrations can't ratchet the zoom upward.
+    if (restingZoomRef.current == null) restingZoomRef.current = m.getZoom();
+    const resting = restingZoomRef.current;
+    m.easeTo({ center, zoom: resting + 0.25, offset: FOCUS_OFFSET, duration: 500 });
+    const settle = setTimeout(() => {
+      map.current?.easeTo({
+        center: center!,
+        zoom: resting,
+        offset: FOCUS_OFFSET,
+        duration: 450,
+      });
+      restingZoomRef.current = null;
+    }, 540);
+
+    return () => {
+      clearTimeout(settle);
+      if (celebrateRaf.current) {
+        cancelAnimationFrame(celebrateRaf.current);
+        celebrateRaf.current = null;
+      }
+      if (map.current?.getLayer("state-celebrate")) {
+        map.current.removeLayer("state-celebrate");
+      }
+    };
+  }, [celebration?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div

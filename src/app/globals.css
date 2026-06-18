@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @import "maplibre-gl/dist/maplibre-gl.css";
 
+:root {
+  /* Cooler premium emerald system — one cohesive palette across the app */
+  --mint-500: #34d399; /* visited fill / primary accent */
+  --mint-400: #4ade80; /* rings, borders, hover accents */
+  --mint-300: #6ee7b7; /* soft glow lines */
+  --gold: #fbbf24; /* reserved strictly for milestones */
+  --ink: #0a0a0a;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -12,14 +21,136 @@ body {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  background: #0a0a0a;
+  background: var(--ink);
+  -webkit-tap-highlight-color: transparent;
 }
 
+/* Bottom sheet entrance */
 @keyframes slideUp {
   from {
     transform: translateY(100%);
   }
   to {
     transform: translateY(0);
+  }
+}
+
+/* Celebration — expanding light ring radiating from the visited state */
+@keyframes ringExpand {
+  from {
+    transform: translate(-50%, -50%) scale(0.3);
+    opacity: 0.9;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(6);
+    opacity: 0;
+  }
+}
+
+/* Glass toast drops in from the top, holds, then fades out */
+@keyframes toastCycle {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-12px);
+  }
+  10% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  82% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+}
+
+/* Reduced-motion toast: pure opacity, no movement */
+@keyframes toastFade {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Progress badge punch on a new visit */
+@keyframes badgePop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Progress ring briefly flashes brighter mint when a new visit lands */
+@keyframes ringFlash {
+  0% {
+    stroke: var(--mint-400);
+  }
+  100% {
+    stroke: var(--mint-500);
+  }
+}
+
+/* Finale-only confetti fall (transform + opacity only) */
+@keyframes confettiFall {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tx, 0), 105vh) rotate(var(--r, 360deg));
+    opacity: 0;
+  }
+}
+
+/* In-sheet check + ring draw-on */
+@keyframes drawStroke {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Sheet inputs get an emerald focus ring */
+.sheet-input {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.sheet-input:focus {
+  border-color: var(--mint-400);
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.16);
+}
+
+/* Loading wordmark breathing */
+@keyframes brandPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.99);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Hold the loading wordmark still when motion is not welcome */
+@media (prefers-reduced-motion: reduce) {
+  .loading-wordmark {
+    animation: none !important;
+    opacity: 1 !important;
   }
 }

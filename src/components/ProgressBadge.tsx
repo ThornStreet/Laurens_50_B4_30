@@ -1,21 +1,53 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import type { StateRecord } from "@/lib/types";
+import { EXCLUDED, TOTAL, COLORS, prefersReducedMotion } from "@/lib/constants";
 
 type Props = {
   states: StateRecord[];
 };
 
 export default function ProgressBadge({ states }: Props) {
-  const excluded = ["District of Columbia", "Puerto Rico", "U.S. Virgin Islands"];
-  const visited = states.filter((s) => s.visited && !excluded.includes(s.name)).length;
-  const total = 50;
-  const pct = visited / total;
+  const visited = states.filter(
+    (s) => s.visited && !EXCLUDED.includes(s.name)
+  ).length;
+
+  const [display, setDisplay] = useState(visited);
+  const [pop, setPop] = useState(0); // bump to retrigger the pop + flash animations
+  const prevRef = useRef(visited);
+  const rafRef = useRef<number | null>(null);
+
+  // Count up (and pop) only on a single new visit; snap on bulk load / un-visit.
+  useEffect(() => {
+    const from = prevRef.current;
+    const to = visited;
+    prevRef.current = visited;
+    if (from === to) return;
+
+    if (to === from + 1 && !prefersReducedMotion()) {
+      setPop((p) => p + 1);
+      const start = performance.now();
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - start) / 600);
+        const eased = 1 - Math.pow(1 - t, 3);
+        setDisplay(Math.round(from + (to - from) * eased));
+        if (t < 1) rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    } else {
+      setDisplay(to);
+    }
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [visited]);
 
   const radius = 14;
   const stroke = 3;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference * (1 - pct);
+  const offset = circumference * (1 - display / TOTAL);
 
   return (
     <div
@@ -23,54 +55,69 @@ export default function ProgressBadge({ states }: Props) {
         position: "fixed",
         top: 16,
         left: 16,
-        zIndex: 900,
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "8px 14px 8px 10px",
-        borderRadius: 999,
-        background: "rgba(0, 0, 0, 0.45)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        border: "1px solid rgba(255, 255, 255, 0.1)",
-        color: "#fff",
-        fontSize: 15,
-        fontWeight: 600,
+        zIndex: 1050,
         pointerEvents: "none",
       }}
     >
-      <svg
-        width={(radius + stroke) * 2}
-        height={(radius + stroke) * 2}
-        style={{ display: "block" }}
+      <div
+        key={pop}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "8px 14px 8px 10px",
+          borderRadius: 999,
+          background: "rgba(0, 0, 0, 0.45)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid rgba(255, 255, 255, 0.1)",
+          color: "#fff",
+          animation: pop ? "badgePop 0.4s ease" : undefined,
+        }}
       >
-        {/* Background ring */}
-        <circle
-          cx={radius + stroke}
-          cy={radius + stroke}
-          r={radius}
-          fill="none"
-          stroke="rgba(255,255,255,0.15)"
-          strokeWidth={stroke}
-        />
-        {/* Progress ring */}
-        <circle
-          cx={radius + stroke}
-          cy={radius + stroke}
-          r={radius}
-          fill="none"
-          stroke="#22c55e"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          transform={`rotate(-90 ${radius + stroke} ${radius + stroke})`}
-          style={{ transition: "stroke-dashoffset 0.3s ease" }}
-        />
-      </svg>
-      <span>
-        {visited} / {total}
-      </span>
+        <svg
+          width={(radius + stroke) * 2}
+          height={(radius + stroke) * 2}
+          style={{ display: "block" }}
+        >
+          {/* Background ring */}
+          <circle
+            cx={radius + stroke}
+            cy={radius + stroke}
+            r={radius}
+            fill="none"
+            stroke="rgba(255,255,255,0.12)"
+            strokeWidth={stroke}
+          />
+          {/* Progress ring */}
+          <circle
+            cx={radius + stroke}
+            cy={radius + stroke}
+            r={radius}
+            fill="none"
+            stroke={COLORS.mint500}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            transform={`rotate(-90 ${radius + stroke} ${radius + stroke})`}
+            style={{ animation: pop ? "ringFlash 0.6s ease" : undefined }}
+          />
+        </svg>
+        <span
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: 3,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          <span style={{ fontSize: 17, fontWeight: 700 }}>{display}</span>
+          <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.55)" }}>
+            / {TOTAL}
+          </span>
+        </span>
+      </div>
     </div>
   );
 }
