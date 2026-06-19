@@ -22,3 +22,12 @@ function getServerSnapshot(): boolean {
 export function useReducedMotion(): boolean {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
+
+/**
+ * One-shot imperative read of the same preference, for use inside rAF loops and
+ * MapLibre event callbacks where a hook can't be called. React components should
+ * prefer the reactive useReducedMotion() hook above.
+ */
+export function prefersReducedMotion(): boolean {
+  return getSnapshot();
+}

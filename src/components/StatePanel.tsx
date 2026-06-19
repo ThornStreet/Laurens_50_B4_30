@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { updateVisited, updateDateVisited, updateNotes } from "@/lib/actions";
 import type { StateRecord } from "@/lib/types";
-import { COLORS } from "@/lib/constants";
+import { COLORS, withAlpha } from "@/lib/constants";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 
 type Props = {
@@ -189,7 +189,10 @@ export default function StatePanel({ state, onUpdate, onCelebrate, onClose }: Pr
             justifyContent: "center",
             gap: 10,
             background: state.visited
-              ? "linear-gradient(135deg, rgba(52,211,153,0.22), rgba(74,222,128,0.14))"
+              ? `linear-gradient(135deg, ${withAlpha(COLORS.mint500, 0.22)}, ${withAlpha(
+                  COLORS.mint400,
+                  0.14
+                )})`
               : "rgba(255,255,255,0.04)",
             color: state.visited ? COLORS.mint300 : COLORS.mint400,
             transition: "all 0.18s ease",

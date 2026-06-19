@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { StateRecord } from "@/lib/types";
-import { EXCLUDED, TOTAL, COLORS, prefersReducedMotion } from "@/lib/constants";
+import { EXCLUDED, TOTAL, COLORS, glass } from "@/lib/constants";
+import { prefersReducedMotion } from "@/lib/useReducedMotion";
 
 type Props = {
   states: StateRecord[];
@@ -62,16 +63,12 @@ export default function ProgressBadge({ states }: Props) {
       <div
         key={pop}
         style={{
+          ...glass,
           display: "flex",
           alignItems: "center",
           gap: 10,
           padding: "8px 14px 8px 10px",
           borderRadius: 999,
-          background: "rgba(0, 0, 0, 0.45)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          border: "1px solid rgba(255, 255, 255, 0.1)",
-          color: "#fff",
           animation: pop ? "badgePop 0.4s ease" : undefined,
         }}
       >

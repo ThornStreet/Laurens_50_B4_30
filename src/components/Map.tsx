@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import type { StateRecord, Celebration, Anchor } from "@/lib/types";
-import { COLORS, prefersReducedMotion } from "@/lib/constants";
+import { COLORS } from "@/lib/constants";
+import { flagBounds } from "@/lib/flagTiles";
+import { prefersReducedMotion } from "@/lib/useReducedMotion";
 
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 const STYLE_URL = `https://api.mapbox.com/styles/v1/mapbox/dark-v11?access_token=${TOKEN}`;
@@ -11,6 +13,14 @@ const STYLE_URL = `https://api.mapbox.com/styles/v1/mapbox/dark-v11?access_token
 // Lift the focused state above the bottom sheet so the celebration rings
 // (and the state itself, while editing) aren't hidden behind it.
 const FOCUS_OFFSET: [number, number] = [0, -150];
+
+// Opacity of a visited state's flag over the dark basemap.
+const FLAG_OPACITY = 0.8;
+
+type StateFeature = GeoJSON.Feature<
+  GeoJSON.Geometry,
+  { NAME: string; STATE_ABBR: string }
+>;
 
 type Props = {
   states: StateRecord[];
@@ -91,29 +101,74 @@ export default function Map({ states, onStateClick, celebration, onAnchor }: Pro
   const statesRef = useRef(states);
   const celebrateRaf = useRef<number | null>(null);
   const restingZoomRef = useRef<number | null>(null);
+  const featuresByNameRef = useRef<globalThis.Map<string, StateFeature> | null>(null);
+  const visitedSigRef = useRef("");
 
-  // Recolor state fills + visited borders whenever the data changes.
+  // Drape each visited state in its pre-baked flag tile (a PNG clipped to the
+  // state shape, placed as an image source over the state's bbox). The tile
+  // fades in on load; un-visited states fade their flag back out. The MapLibre
+  // layer itself is the "already added" record, so no extra bookkeeping is kept.
+  const syncFlags = useCallback(() => {
+    const m = map.current;
+    const byName = featuresByNameRef.current;
+    if (!m || !byName) return;
+    const reduce = prefersReducedMotion();
+
+    for (const s of statesRef.current) {
+      const feat = byName.get(s.name);
+      if (!feat) continue;
+      const abbr = feat.properties.STATE_ABBR;
+      const layerId = `flag-${abbr}`;
+
+      if (m.getLayer(layerId)) {
+        m.setPaintProperty(layerId, "raster-opacity", s.visited ? FLAG_OPACITY : 0);
+        continue;
+      }
+      if (!s.visited) continue;
+
+      const coordinates = flagBounds(feat.geometry);
+      if (!coordinates || m.getSource(`flag-src-${abbr}`)) continue;
+
+      m.addSource(`flag-src-${abbr}`, {
+        type: "image",
+        url: `/flags/tiles/${abbr}.png`,
+        coordinates,
+      });
+      m.addLayer(
+        {
+          id: layerId,
+          type: "raster",
+          source: `flag-src-${abbr}`,
+          paint: {
+            // Static opacity: the tile fades in on load via raster-fade-duration,
+            // and opacity transitions handle un-visit / re-visit toggles.
+            "raster-opacity": FLAG_OPACITY,
+            "raster-fade-duration": reduce ? 0 : 300,
+            "raster-opacity-transition": { duration: reduce ? 0 : 400 },
+          },
+        },
+        m.getLayer("state-borders") ? "state-borders" : undefined
+      );
+    }
+  }, []);
+
+  // Update visited borders + flags whenever the set of visited states changes.
   useEffect(() => {
     statesRef.current = states;
 
+    // Gate on a layer existing (i.e. we're past 'load') rather than
+    // isStyleLoaded(), which can be transiently false while sources load.
     const m = map.current;
-    if (!m || !m.isStyleLoaded()) return;
+    if (!m || !m.getLayer("state-visited-border")) return;
 
+    // Only the visited set affects borders/flags — skip notes/date edits.
     const unvisitedList = states.filter((s) => !s.visited).map((s) => s.name);
-
-    m.setPaintProperty("state-fills", "fill-color", [
-      "case",
-      ["in", ["get", "NAME"], ["literal", unvisitedList]],
-      "transparent",
-      COLORS.mint500,
-    ]);
-
-    m.setPaintProperty("state-fills", "fill-opacity", [
-      "case",
-      ["in", ["get", "NAME"], ["literal", unvisitedList]],
-      0,
-      0.4,
-    ]);
+    const visitedSig = states
+      .filter((s) => s.visited)
+      .map((s) => s.name)
+      .join("|");
+    if (visitedSig === visitedSigRef.current) return;
+    visitedSigRef.current = visitedSig;
 
     m.setPaintProperty("state-visited-border", "line-opacity", [
       "case",
@@ -121,7 +176,9 @@ export default function Map({ states, onStateClick, celebration, onAnchor }: Pro
       0,
       0.5,
     ]);
-  }, [states]);
+
+    syncFlags();
+  }, [states, syncFlags]);
 
   // One-time map init.
   useEffect(() => {
@@ -131,11 +188,20 @@ export default function Map({ states, onStateClick, celebration, onAnchor }: Pro
     let cancelled = false;
 
     async function init() {
-      const res = await fetch(STYLE_URL);
-      const raw = await res.json();
+      const [raw, geojson] = await Promise.all([
+        fetch(STYLE_URL).then((r) => r.json()),
+        fetch("/states.geojson").then((r) => r.json()),
+      ]);
       const style = resolveStyle(raw);
 
       if (cancelled) return;
+
+      // Index features by state name so flags can be looked up + clipped.
+      const byName = new globalThis.Map<string, StateFeature>();
+      for (const f of (geojson.features ?? []) as StateFeature[]) {
+        byName.set(f.properties.NAME, f);
+      }
+      featuresByNameRef.current = byName;
 
       map.current = new maplibregl.Map({
         container,
@@ -160,7 +226,7 @@ export default function Map({ states, onStateClick, celebration, onAnchor }: Pro
       map.current.on("load", () => {
         map.current!.addSource("states", {
           type: "geojson",
-          data: "/states.geojson",
+          data: geojson,
           generateId: true,
         });
 
@@ -168,23 +234,15 @@ export default function Map({ states, onStateClick, celebration, onAnchor }: Pro
           .filter((s) => !s.visited)
           .map((s) => s.name);
 
+        // Transparent fill kept purely for click/hover hit-testing; the visited
+        // look now comes from each state's flag raster (see syncFlags).
         map.current!.addLayer({
           id: "state-fills",
           type: "fill",
           source: "states",
           paint: {
-            "fill-color": [
-              "case",
-              ["in", ["get", "NAME"], ["literal", unvisitedList]],
-              "transparent",
-              COLORS.mint500,
-            ] as unknown as string,
-            "fill-opacity": [
-              "case",
-              ["in", ["get", "NAME"], ["literal", unvisitedList]],
-              0,
-              0.4,
-            ] as unknown as number,
+            "fill-color": "#000000",
+            "fill-opacity": 0,
           },
         });
 
@@ -330,6 +388,9 @@ export default function Map({ states, onStateClick, celebration, onAnchor }: Pro
           }
           hoveredId = null;
         });
+
+        // Drape any already-visited states in their flags on first paint.
+        syncFlags();
       });
     }
 

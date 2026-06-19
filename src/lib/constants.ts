@@ -1,6 +1,8 @@
 // Shared constants + small helpers used across the map, badges, and the
 // celebration layer so progress is computed identically everywhere.
 
+import type { CSSProperties } from "react";
+
 /** Places that don't count toward the "50 states" goal (bonus stops). */
 export const EXCLUDED = [
   "District of Columbia",
@@ -17,6 +19,24 @@ export const COLORS = {
   mint300: "#6ee7b7",
   gold: "#fbbf24",
 } as const;
+
+/** A translucent variant of a palette hex (e.g. withAlpha(COLORS.gold, 0.55)). */
+export function withAlpha(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/** Shared glassmorphism base for the floating badges + celebration toast. */
+export const glass: CSSProperties = {
+  background: "rgba(0, 0, 0, 0.45)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+  border: "1px solid rgba(255, 255, 255, 0.1)",
+  color: "#fff",
+};
 
 export type Milestone = "finale" | "half" | "minor" | null;
 
@@ -47,10 +67,4 @@ export function celebrationCopy(
     default:
       return `${name} — state #${count}`;
   }
-}
-
-/** Read once per interaction; never animate motion if the user opts out. */
-export function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { COLORS } from "@/lib/constants";
+import { COLORS, glass, withAlpha } from "@/lib/constants";
 
 const BIRTHDAY = new Date(2028, 6, 9); // July 9, 2028
 
@@ -13,19 +13,14 @@ export default function CountdownBadge() {
   return (
     <div
       style={{
+        ...glass,
         position: "fixed",
         top: 16,
         right: 16,
         zIndex: 1050,
         padding: "6px 16px",
         borderRadius: 16,
-        background: "rgba(0, 0, 0, 0.45)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        border: urgent
-          ? "1px solid rgba(251,191,36,0.4)"
-          : "1px solid rgba(255, 255, 255, 0.1)",
-        color: "#fff",
+        border: urgent ? `1px solid ${withAlpha(COLORS.gold, 0.4)}` : glass.border,
         textAlign: "center",
         pointerEvents: "none",
       }}

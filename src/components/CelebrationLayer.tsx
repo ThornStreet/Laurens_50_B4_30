@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { celebrationCopy, COLORS } from "@/lib/constants";
+import { celebrationCopy, COLORS, glass, withAlpha } from "@/lib/constants";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 import type { Celebration, Anchor } from "@/lib/types";
 
@@ -93,7 +93,7 @@ function CelebrationVisual({
   reduce: boolean;
   confetti: Confetti[];
 }) {
-  const toastBorder = finale ? "rgba(251,191,36,0.55)" : "rgba(74,222,128,0.35)";
+  const toastBorder = finale ? withAlpha(COLORS.gold, 0.55) : withAlpha(COLORS.mint400, 0.35);
   const dotColor = finale ? COLORS.gold : COLORS.mint400;
   const textColor = finale ? COLORS.gold : "#fff";
 
@@ -111,9 +111,13 @@ function CelebrationVisual({
       }}
     >
       {/* Expanding light rings radiating from the visited state */}
-      {!reduce && (
-        <>
+      {!reduce &&
+        [
+          { border: `2px solid ${COLORS.mint400}`, boxShadow: `0 0 16px ${COLORS.mint300}`, opacity: 1, delay: "0s" },
+          { border: `1.5px solid ${COLORS.mint300}`, boxShadow: "none", opacity: 0.6, delay: "0.12s" },
+        ].map((ring, i) => (
           <span
+            key={i}
             style={{
               position: "absolute",
               left: anchor.x,
@@ -121,33 +125,19 @@ function CelebrationVisual({
               width: 48,
               height: 48,
               borderRadius: "50%",
-              border: `2px solid ${COLORS.mint400}`,
-              boxShadow: `0 0 16px ${COLORS.mint300}`,
               transformOrigin: "center",
-              animation: "ringExpand 0.9s cubic-bezier(0.16,1,0.3,1) forwards",
+              border: ring.border,
+              boxShadow: ring.boxShadow,
+              opacity: ring.opacity,
+              animation: `ringExpand 0.9s cubic-bezier(0.16,1,0.3,1) ${ring.delay} forwards`,
             }}
           />
-          <span
-            style={{
-              position: "absolute",
-              left: anchor.x,
-              top: anchor.y,
-              width: 48,
-              height: 48,
-              borderRadius: "50%",
-              border: `1.5px solid ${COLORS.mint300}`,
-              opacity: 0.6,
-              transformOrigin: "center",
-              animation:
-                "ringExpand 0.9s cubic-bezier(0.16,1,0.3,1) 0.12s forwards",
-            }}
-          />
-        </>
-      )}
+        ))}
 
       {/* Glass toast — drops from the top, clear of the open sheet below */}
       <div
         style={{
+          ...glass,
           position: "absolute",
           left: "50%",
           top: "calc(env(safe-area-inset-top, 0px) + 68px)",
@@ -157,9 +147,7 @@ function CelebrationVisual({
           gap: 9,
           padding: "9px 16px",
           borderRadius: 999,
-          background: "rgba(0,0,0,0.55)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
+          background: "rgba(0, 0, 0, 0.55)",
           border: `1px solid ${toastBorder}`,
           boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
           color: textColor,
