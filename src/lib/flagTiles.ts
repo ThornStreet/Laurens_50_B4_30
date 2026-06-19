@@ -7,7 +7,10 @@
 // bake script's projection so the tile registers exactly with the borders.
 
 type Poly = number[][][]; // a polygon: array of rings, each ring an array of [lng,lat]
-type Geom = GeoJSON.Geometry;
+// Minimal structural geometry — avoids depending on the global GeoJSON namespace
+// (not resolvable under pnpm's strict node_modules). MapLibre's geometry, which
+// carries `type` + `coordinates`, is assignable to this.
+type Geom = { type: string; coordinates?: unknown };
 
 /**
  * Polygons of a geometry. When a feature crosses the antimeridian (Alaska's
@@ -17,9 +20,9 @@ type Geom = GeoJSON.Geometry;
 function polygonsOf(geom: Geom): Poly[] {
   const polys: Poly[] =
     geom.type === "Polygon"
-      ? [(geom as GeoJSON.Polygon).coordinates]
+      ? [geom.coordinates as Poly]
       : geom.type === "MultiPolygon"
-      ? (geom as GeoJSON.MultiPolygon).coordinates
+      ? (geom.coordinates as Poly[])
       : [];
 
   let minL = Infinity;

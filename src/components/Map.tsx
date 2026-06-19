@@ -17,10 +17,13 @@ const FOCUS_OFFSET: [number, number] = [0, -150];
 // Opacity of a visited state's flag over the dark basemap.
 const FLAG_OPACITY = 0.8;
 
-type StateFeature = GeoJSON.Feature<
-  GeoJSON.Geometry,
-  { NAME: string; STATE_ABBR: string }
->;
+// Minimal structural geometry — avoids the global GeoJSON namespace, which isn't
+// resolvable under pnpm's strict node_modules. MapLibre's geometry is assignable.
+type StateGeometry = { type: string; coordinates?: unknown };
+type StateFeature = {
+  geometry: StateGeometry;
+  properties: { NAME: string; STATE_ABBR: string };
+};
 
 type Props = {
   states: StateRecord[];
@@ -72,10 +75,10 @@ function resolveStyle(raw: Record<string, unknown>): maplibregl.StyleSpecificati
 }
 
 /** Flatten polygon/multipolygon rings to a flat list of [lng,lat] coords. */
-function geometryCoords(geom: GeoJSON.Geometry): number[][] {
-  if (geom.type === "Polygon") return (geom as GeoJSON.Polygon).coordinates.flat();
+function geometryCoords(geom: StateGeometry): number[][] {
+  if (geom.type === "Polygon") return (geom.coordinates as number[][][]).flat();
   if (geom.type === "MultiPolygon")
-    return (geom as GeoJSON.MultiPolygon).coordinates.flat(2);
+    return (geom.coordinates as number[][][][]).flat(2);
   return [];
 }
 
@@ -335,9 +338,7 @@ export default function Map({ states, onStateClick, celebration, onAnchor }: Pro
           const name = feature.properties?.NAME;
           if (!name) return;
 
-          const center = bboxCenter(
-            geometryCoords(feature.geometry as GeoJSON.Geometry)
-          );
+          const center = bboxCenter(geometryCoords(feature.geometry));
 
           if (center) {
             const currentZoom = map.current!.getZoom();
@@ -420,7 +421,7 @@ export default function Map({ states, onStateClick, celebration, onAnchor }: Pro
       });
       let coords: number[][] = [];
       for (const f of feats) {
-        coords = coords.concat(geometryCoords(f.geometry as GeoJSON.Geometry));
+        coords = coords.concat(geometryCoords(f.geometry));
       }
       center = bboxCenter(coords);
     }
